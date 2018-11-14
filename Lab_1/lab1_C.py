@@ -3,12 +3,13 @@ from random import randint
 
 class Maze:
 
-    def __init__ (self, reward, A):
+    def __init__ (self, A):
         self.S = self.get_states()
         self.r = reward
         self.A = A
         self.s = [0,0]
         self.sb = [4,4]
+        self.T = 15
 
     def valid_move(self, a):
         valid = True
@@ -83,20 +84,85 @@ class Maze:
             pass
         else:
             pass
+    
+
     def bellman(self):
-        u = 0
-        #if self.T > 1:
-          #Nogonting rekursivt.
+        ut = []
+        for i in range(900):
+            ut.append(0)
+
+
+    
+
+
     def get_states(self):
         rows = 5
         columns = 6
         S = []
+        S_big = []
         for i in range(rows):
             for j in range(columns):
                 S.append([i,j])
-        self.S = S
-    def get_actions(self):
-        pass
+        for sa in S:
+            for sb in S:
+
+                S_big.append([sa,sb])
+                #print(S_big)
+        S = S_big
+        self.states = S
+
+
+
+    def get_reward(self, state, a):
+        if state[0] == [4, 5] and a == 'left' and state[1] != [4,4]:
+            r = 100
+        elif abs(state[0][0] - state[1][0]) == 1:
+            diff = state[0][0]- state[1][0]
+            if (diff < 0 and a == 'up') or (diff > 0 and a == 'down'):
+                r = -100
+            else:
+                r = -1
+
+        elif abs(state[0][1] - state[1][1]) == 1:
+            diff = state[0][1] - state[1][1]
+            if (diff < 0 and a == 'right') or (diff > 0 and a == 'left'):
+                r = -100
+            else:
+                r = -1
+        else:
+            r = -1
+
+        return r
+
+
+
+
+
+
+
+
+
+
+
+        if state[0] == state[1]:
+            r = -100
+        elif state[0] == [4,4] and state[1] != [4,4]:
+            r = 100
+        else:
+            r = -1
+        return r
+
+    def reward_mapping(self):
+        mapping = []
+
+        for state in self.states:
+            reward = self.get_reward(state)
+            mapping.append(reward)
+        self.mapping = mapping
+
+
+
+
 
 
 
@@ -105,4 +171,5 @@ class Maze:
 reward = {'dead': -100, 'end': 100, 'step': -1}
 A = ['up', 'down', 'left', 'right', 'still']
 
-s = Maze(reward,A)
+s = Maze(A)
+

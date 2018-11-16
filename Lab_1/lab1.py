@@ -177,4 +177,4 @@ a.bellman()
 print(np.reshape(a.u[0], (5,6)))
 
 
-
+print('hej')

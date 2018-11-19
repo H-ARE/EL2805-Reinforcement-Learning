@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import math
+import copy
 class Robber:
 
 	def __init__(self, gamma):
@@ -10,6 +11,25 @@ class Robber:
 		self.A = ['up', 'down', 'left', 'right', 'still']
 		self.policy = None
 		self.policy_file_path = 'policy_v.pkl'
+		self.get_enc()
+		self.Q = self.load_q()
+
+	def get_enc(self):
+		encoder_s = {}
+		decoder_s = {}
+		for i, s in enumerate(self.S):
+			encoder_s[((s['A'][0], s['A'][1]),(s['B'][0], s['B'][1]))] = i
+			decoder_s[i] = s
+		decoder_a = {0:'up', 1:'right', 2:'down', 3:'left', 4:'still'}
+		encoder_a = {'up':0, 'right':1, 'down':2, 'left':3, 'still':4}
+		return encoder_s, decoder_s, encoder_a, decoder_a
+
+
+	def load_q(self, filename = 'q.pkl'):
+		with open(filename, 'rb') as f:
+			q = pickle.load(f)
+
+		return q
 
 	def get_all_states(self):
 		"""
@@ -39,9 +59,8 @@ class Robber:
 		Returns transition probability of transferring 
 		from state s1 to s2 with action a.
 		"""
-		if self.adjacent_states(s1, s2, a) and self.fixed_cop(s1, s2):
+		if  self.adjacent_states(s1, s2, a) and self.fixed_cop(s1, s2):
 			return 1
-		
 		else:
 			return 0
 
@@ -95,37 +114,122 @@ class Robber:
 		else:
 			return action
 
-	def update_state(self, s, a):
-		s = s['A']
+	def update_state(self, a, minotaor = False):
+		"""
+		Updates the state. If minotaor == False, the minotaur's position
+		is updated. Otherwise, the character state is updated.
+		"""
+		if not minotaor:
+			if self.valid_move(a):
+				state = self.s['A']
+			else:
+				a = 'still'
+		else:
+			state = self.s['B']
+			a = self.get_minotaor_action()
 		if a == 'up':
-			s[0] -= 1
+			state[0] -= 1
 		elif a == 'down':
-			s[0] += 1
+			state[0] += 1
 		elif a == 'right':
-			s[1] += 1
+			state[1] += 1
 		elif a == 'left':
-			s[1] -= 1
+			state[1] -= 1
 		elif a == 'still':
 			pass
+		else:
+			pass
 
-	def valid_move(self, s, a):
-		pass
 
-	def get_exp(self, s):
+
+
+	def get_minotaor_action(self):
 		"""
-		Returns tuple (st, at, rt, st+1)
+		Returns the random action of the minotaur.
 		"""
+		a = np.random.choice(['up', 'down', 'left', 'right'], 1, p = [0.25, 0.25, 0.25, 0.25])[0]
+
+		if a == 'up' and self.s['B'][0] == 0: # Upper Maze Wall
+			a = self.get_minotaor_action()
+		if a == 'down' and self.s['B'][0] == 3: # Lower Maze Wall
+			a = self.get_minotaor_action()
+		if a == 'left' and self.s['B'][1] == 0: # Western Maze Wall
+			a = self.get_minotaor_action()
+		if a == 'right' and self.s['B'][1] == 3: # Eastern Maze Wall
+			a = self.get_minotaor_action()
+		return a
+
+
+	def valid_move(self, a):
+		if a == 'up' and self.s['A'][0] == 0: # Upper Maze Wall
+			return False
+		elif a == 'down' and self.s['A'][0] == 3: # Lower Maze Wall
+			return False
+		elif a == 'left' and self.s['A'][1] == 0: # Western Maze Wall
+			return False
+		elif a == 'right' and self.s['A'][1] == 3: # Eastern Maze Wall
+			return False
+		else:
+			return True
+
+	def get_exp(self):
+		"""
+		Returns (st, at, rt, st+1)
+		"""
+		s = copy.deepcopy(self.s)
 		a = np.random.choice(self.A, 1, p = [0.2, 0.2, 0.2, 0.2, 0.2])[0]
-		r = self.reward(s)
-		if self.prob()
-		s_next = 
+		r = self.reward(self.s)
+		self.update_state(a, minotaor = False)
+		self.update_state(a, minotaor = True)
+		s_next = copy.deepcopy(self.s)
+		return {'s':s, 'a':a, 'r':r, 's_next':s_next}
+
+	def get_policy_from_q(self, Q):
+		policy = {}
+		encoder_s, decoder_s, encoder_a, decoder_a = self.get_enc()
+		for ind, s in enumerate(self.S):
+			a_star = np.argmax(Q[ind,:])
+			a_star = decoder_a[a_star]
+			print(s, a_star)
+			policy[((s['A'][0], s['A'][1]), (s['B'][0], s['B'][1]))] = a_star
+			print(ind)
+		with open('policy.pkl', 'wb') as f:
+			pickle.dump(policy, f)
+		return policy
+
+
 
 
 	def Q_learn(self):
-		Q = np.zeros(16*16,5)
-		decoder = {0:'up', 1:'right', 2:'down', 3:'left', 4:'still'}
-		encoder = {'up':0, 'right':1, 'down':2, 'left':3, 'still':4}
-		a = 0.01
+		"""
+		Todo: decoder and encoder for state
+		"""
+		Q = np.zeros([16*16,5])
+		counter = np.zeros([16*16, 5])
+		encoder_s, decoder_s, encoder_a, decoder_a = self.get_enc()
+		g = self.gamma
+		value = []
+		for i in range(10000000):
+			exp = self.get_exp()
+			key = ((exp['s']['A'][0], exp['s']['A'][1]), (exp['s']['B'][0], exp['s']['B'][1]))
+			key_next = ((exp['s_next']['A'][0], exp['s_next']['A'][1]), (exp['s_next']['B'][0], exp['s_next']['B'][1]))
+			i_s = encoder_s[key]
+			i_s_next = encoder_s[key_next]
+			i_a = encoder_a[exp['a']]
+			counter[i_s, i_a] += 1
+			a = 1/(counter[i_s, i_a]**(2/3))
+			Q[i_s, i_a] += a*(exp['r'] + g*max(Q[i_s_next,:]) - Q[i_s, i_a])
+
+			if i % 1000 == 0:
+				value.append(Q[240,:])
+			if i % 100000 == 0:
+				print(i)
+		self.Q = Q
+		self.value = value
+		with open('q.pkl', 'wb') as f:
+			pickle.dump(Q, f)
+
+
 
 
 
@@ -135,4 +239,5 @@ s1={'A': [0,0], 'B': [3,4]}
 s2={'A': [0,1], 'B': [3,3]}
 
 a = Robber(0.8)
-print(a.prob(s1,s2,'right'))
+#a.Q_learn()
+#policy = a.get_policy_from_q(q)

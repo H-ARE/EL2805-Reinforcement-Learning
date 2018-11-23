@@ -23,14 +23,15 @@ Initial state:
  """
 
 class Simulation:
-	def __init__(self, T = 15):
+	def __init__(self, T = 15, still_minotaur = False):
 		self.grid = self.initialize_grid()
 		self.T = T
 		self.s = {'A': [0,0], 'B': [4,4]}
 		self.policy = self.get_policy()
+		self.still_minotaur = still_minotaur
 
 
-	def get_policy(self, filename = 'policy.pkl'):
+	def get_policy(self, filename = 'policy_still_v.pkl'):
 		"""
 		Loads policy from filename.
 		"""
@@ -38,31 +39,38 @@ class Simulation:
 			policy = pickle.load(f)
 		return policy
 
-	def update_state(self, a = 'still', minotaor = False):
+	def update_state(self, a):
 		"""
 		Updates the state. If minotaor == False, the minotaur's position
 		is updated. Otherwise, the character state is updated.
 		"""
-		if not minotaor:
-			if self.valid_move(a):
-				state = self.s['A']
+		if self.valid_move(a):
+			s1 = self.s['A']
+			if a == 'up':
+				s1[0] -= 1
+			elif a == 'down':
+				s1[0] += 1
+			elif a == 'right':
+				s1[1] += 1
+			elif a == 'left':
+				s1[1] -= 1
 			else:
-				a = 'still'
+				pass
 		else:
-			state = self.s['B']
-			a = self.get_minotaor_action()
+			pass
+		s2 = self.s['B']
+		a = self.get_minotaor_action()
 		if a == 'up':
-			state[0] -= 1
+			s2[0] -= 1
 		elif a == 'down':
-			state[0] += 1
+			s2[0] += 1
 		elif a == 'right':
-			state[1] += 1
+			s2[1] += 1
 		elif a == 'left':
-			state[1] -= 1
-		elif a == 'still':
-			pass
+			s2[1] -= 1
 		else:
 			pass
+		return(a)
 
 	def initialize_grid(self):
 		"""
@@ -90,7 +98,10 @@ class Simulation:
 		"""
 		Returns the random action of the minotaur.
 		"""
-		a = np.random.choice(['up', 'down', 'left', 'right'], 1, p = [0.25, 0.25, 0.25, 0.25])[0]
+		if self.still_minotaur:
+			a = np.random.choice(['up', 'down', 'left', 'right', 'still'], 1, p = [0.2, 0.2, 0.2, 0.2, 0.2])[0]
+		else:
+			a = np.random.choice(['up', 'down', 'left', 'right'], 1, p = [0.25, 0.25, 0.25, 0.25])[0]
 
 		if a == 'up' and self.s['B'][0] == 0: # Upper Maze Wall
 			a = self.get_minotaor_action()
@@ -126,9 +137,9 @@ class Simulation:
 		elif a == 'up' and self.s['A'][0] == 4 and self.s['A'][1] in [1,2,3,4]:
 			valid = False
 		# Horizontal Wall @ (1,4)       
-		elif a == 'down' and self.s['A'][0] == 1 and self.s['A'][0] in [4,5]:
+		elif a == 'down' and self.s['A'][0] == 1 and self.s['A'][1] in [4,5]:
 			valid = False
-		elif a == 'up' and self.s['A'][0] == 2 and self.s['A'][0] in [4,5]:
+		elif a == 'up' and self.s['A'][0] == 2 and self.s['A'][1] in [4,5]:
 			valid = False   
 		# Vertical Wall @(1,3) 
 		elif a == 'right' and self.s['A'][1] == 3 and self.s['A'][0] in [1,2]:	
@@ -145,42 +156,86 @@ class Simulation:
 
 
 
-	def get_action_from_policy(self,state):
+	def get_action_from_policy(self,state,t):
 		"""
 		Returns an action given a state.
 		"""
-		action = self.policy[((state['A'][0], state['A'][1]), (state['B'][0], state['B'][1]))]
+		if type(self.policy) == list:
+			action = self.policy[t][((state['A'][0], state['A'][1]), (state['B'][0], state['B'][1]))]
+		else:
+			action = self.policy[((state['A'][0], state['A'][1]), (state['B'][0], state['B'][1]))]
 		return action
 		
 
-	def run_simulation(self):
+	def evaluate_policy(self, N = 10000, t1 = 10, t2 = 15):
+		P = []
+		for time in range(t1,t2):
+			print(time)
+			p = 0
+			for i in range(N):
+				pi = self.run_simulation(time)
+				p+=pi
+				#if pi == 0:
+					#print('hej')
+			p = p/N
+			P.append(p)
+		print(P)
+
+	def evaluate_policy_geometric(self, N = 100000):
+		p = 0
+		for i in range(N):
+			T = np.random.geometric(1/29)
+			pi = self.run_simulation(T)
+			p+=pi
+		p = p/N
+		print(p)
+
+
+
+
+
+	def run_simulation(self, SIM_TIME):
 		"""
 		Runs the maze simulation
 		"""
-		print("""
-			#### STARTING MINOTAUR MAZE SIMULATION ### 
-			""")
-		for i in range(self.T):
-			if self.s['A'] == self.s['B']:
-				print(self.grid)
-				print('Dead after', i+1, 'steps')
-				break
-			elif self.s['A'] == [4,4]:
-				print(self.grid)
-				print('You won in', i+1, 'steps')
-				break
-			print(self.grid)
-			print('\n')
-			a = self.get_action_from_policy(self.s)
-			self.update_state(a, minotaor = False)
-			self.update_grid()
-			print(self.grid)
-			print('\n')
-			self.update_state(minotaor = True)
-			self.update_grid()
-		if self.s['A'] != [4,4]:
-			print('You did not make it to the end.')
+		A = []
+		self.s = {'A': [0,0], 'B': [4,4]}
+		for i in range(SIM_TIME):
+
+			#print(self.grid)
+			#print('\n')
+			if self.s['A'] == [4,4]:
+				#print('You won in', i, 'steps!')
+				#print(A)
+				return 1
+			elif self.s['A'] == self.s['B']:
+				#print('You lost after', i, 'steps') 
+				#print(A)
+				return 0
+				
+			action = self.get_action_from_policy(self.s, i+15-SIM_TIME-1)
 			
+			ra = self.update_state(action)
+			A.append(ra)
+			self.update_grid()
+		#print(self.grid)
+		if self.s['A'] != [4,4]:
+			#print('You did not make it to the end.')
+			#print(A)
+			return 0
+		else:
+			#print('You won in', i+1, 'steps')
+			#print(A)
+			#print('bla')
+			return 1
+
+
+#d = Simulation()
+
+#s = {'A':[3,2], 'B':[4,5]}
+#print(d.get_action_from_policy(s))
+
 if __name__ == '__main__':
 	a = Simulation()
-	a.run_simulation()
+	#a.run_simulation(12)
+	a.evaluate_policy_geometric()

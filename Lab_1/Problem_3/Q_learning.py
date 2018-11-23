@@ -47,7 +47,7 @@ class Robber:
 		"""
 		Returns reward from being in state s.
 		"""
-		if s['A'] == [1,1]:
+		if (s['A'] == [1,1]) and (s['A'] != s['B']):
 			return 1
 		elif s['A'] == s['B']:
 			return -10
@@ -60,7 +60,8 @@ class Robber:
 		from state s1 to s2 with action a.
 		"""
 		if  self.adjacent_states(s1, s2, a) and self.fixed_cop(s1, s2):
-			return 1
+			n = self.n_minotaur_neighbours(s1)
+			return 1/(n)
 		else:
 			return 0
 
@@ -94,12 +95,23 @@ class Robber:
 		"""
 		s1 = s1['B']
 		s2 = s2['B']
-		if s1 == s2:
+
+
+		if (abs(s1[0] - s2[0]) == 1) and (s1[1] - s2[1] == 0):
+			return True
+		elif (abs(s1[1] - s2[1]) == 1) and (s1[0] - s2[0] == 0):
 			return True
 		else:
 			return False
 
-
+	def n_minotaur_neighbours(self, s):
+		s = s['B']
+		if (s[0] == 0 and s[1] == 0) or (s[0] == 3 and s[1] == 0) or (s[0] == 0 and s[1] == 3) or (s[0] == 3 and s[1] == 3):
+			return 2
+		elif (s[0] == 0) or (s[0] == 3) or (s[1] == 0) or (s[1] == 3):
+			return 3
+		else:
+			return 4
 	def get_optimal_action_Q(self, Q, eps, s):
 		"""
 		Returns epsilon optimal action
@@ -139,8 +151,6 @@ class Robber:
 			pass
 		else:
 			pass
-
-
 
 
 	def get_minotaor_action(self):
@@ -193,12 +203,9 @@ class Robber:
 			print(s, a_star)
 			policy[((s['A'][0], s['A'][1]), (s['B'][0], s['B'][1]))] = a_star
 			print(ind)
-		with open('policy.pkl', 'wb') as f:
+		with open('policy2.pkl', 'wb') as f:
 			pickle.dump(policy, f)
 		return policy
-
-
-
 
 	def Q_learn(self):
 		"""
@@ -208,7 +215,8 @@ class Robber:
 		counter = np.zeros([16*16, 5])
 		encoder_s, decoder_s, encoder_a, decoder_a = self.get_enc()
 		g = self.gamma
-		value = []
+		down = []
+		still = []
 		for i in range(10000000):
 			exp = self.get_exp()
 			key = ((exp['s']['A'][0], exp['s']['A'][1]), (exp['s']['B'][0], exp['s']['B'][1]))
@@ -219,25 +227,26 @@ class Robber:
 			counter[i_s, i_a] += 1
 			a = 1/(counter[i_s, i_a]**(2/3))
 			Q[i_s, i_a] += a*(exp['r'] + g*max(Q[i_s_next,:]) - Q[i_s, i_a])
-
-			if i % 1000 == 0:
-				value.append(Q[240,:])
+			if exp['s'] == {'A':[0,0], 'B':[3,3]} and exp['a'] == 'down':
+				down.append(Q[240,2])
+			if exp['s'] == {'A':[0,0], 'B':[3,3]} and exp['a'] == 'still':
+				still.append(Q[240,4])
 			if i % 100000 == 0:
 				print(i)
 		self.Q = Q
-		self.value = value
 		with open('q.pkl', 'wb') as f:
 			pickle.dump(Q, f)
+		policy = self.get_policy_from_q(Q)
+		with open('still.pkl', 'wb') as f:
+			pickle.dump(still, f)
+		with open('down.pkl', 'wb') as f:
+			pickle.dump(down, f)
 
 
 
 
 
+if __name__ == '__main__':
+	a = Robber(0.8)
+	a.Q_learn()
 
-
-s1={'A': [0,0], 'B': [3,4]}
-s2={'A': [0,1], 'B': [3,3]}
-
-a = Robber(0.8)
-#a.Q_learn()
-#policy = a.get_policy_from_q(q)

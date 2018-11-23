@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+
 """
 Simulation of the maze.
 
@@ -23,10 +24,10 @@ Initial state:
 
 class Simulation:
 	def __init__(self):
-		self.grid = self.initialize_grid()
-		self.s = {'A': [0,1], 'B': [3,3]}
+		
+		self.s = {'A': [0,0], 'B': [3,3]}
+		self.grid = self.update_grid()
 		self.policy = self.get_policy()
-
 
 	def get_policy(self, filename = 'policy.pkl'):
 		"""
@@ -127,20 +128,18 @@ class Simulation:
 		"""
 		Runs the maze simulation
 		"""
-		print("""
-			#### STARTING MINOTAUR MAZE SIMULATION ### 
-			""")
-		for i in range(3):
+
+		for i in range(40):
 
 			print(self.grid)
 			print('\n')
 			a = self.get_action_from_policy(self.s)
 			self.update_state(a, minotaor = False)
 			self.update_grid()
-			print(self.grid)
-			print('\n')
 			self.update_state(minotaor = True)
 			self.update_grid()
+			if self.s['A'] == self.s['B']:
+				print('FÖRLUST')
 
 			
 if __name__ == '__main__':

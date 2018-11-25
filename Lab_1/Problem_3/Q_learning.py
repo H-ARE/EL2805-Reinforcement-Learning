@@ -194,6 +194,19 @@ class Robber:
 		s_next = copy.deepcopy(self.s)
 		return {'s':s, 'a':a, 'r':r, 's_next':s_next}
 
+	def get_exp_sarsa(self,Q,eps):
+                """
+                Returns (st, at, rt, st+1)
+		"""
+		s = copy.deepcopy(self.s)
+		a = self.get_optimal_action(Q,eps,s)
+		r = self.reward(self.s)
+		self.update_state(a, minotaor = False)
+		self.update_state(a, minotaor = True)
+		s_next = copy.deepcopy(self.s)
+		a_next = self.get_optimal_action(Q,eps,s_next)
+		return {'s':s, 'a':a, 'r':r, 's_next':s_next, 'a_next':a_next}
+	
 	def get_policy_from_q(self, Q):
 		policy = {}
 		encoder_s, decoder_s, encoder_a, decoder_a = self.get_enc()
@@ -203,7 +216,7 @@ class Robber:
 			print(s, a_star)
 			policy[((s['A'][0], s['A'][1]), (s['B'][0], s['B'][1]))] = a_star
 			print(ind)
-		with open('policy2.pkl', 'wb') as f:
+		with open('sarsa.pkl', 'wb') as f:
 			pickle.dump(policy, f)
 		return policy
 
@@ -243,10 +256,34 @@ class Robber:
 			pickle.dump(down, f)
 
 
+        def Sarsa(self, eps):
 
+                encoder_s, decoder_s, encoder_a, decoder_a = self.get_enc()
+                
+                Q = np.zeros([16*16,5])
+                counter = np.zeros([16*16, 5])
+
+                for i in range(1000000):
+                        exp = self.get_exp_sarsa(Q,eps)
+                        key = ((exp['s']['A'][0], exp['s']['A'][1]), (exp['s']['B'][0], exp['s']['B'][1]))
+                        key_next = ((exp['s_next']['A'][0], exp['s_next']['A'][1]), (exp['s_next']['B'][0], exp['s_next']['B'][1]))
+                        i_s = encoder_s[key]
+                        i_s_next = encoder_s[key_next]
+                        i_a = encoder_a[exp['a']]
+                        i_a_next = encoder_a[exp['a_next']]
+
+                        counter[i_s, i_a] += 1
+                        a = 1/(counter[i_s, i_a]**(2/3))
+
+                        Q[i_s, i_a] = Q[i_s, i_a] +  a*(exp['r'] + self.gamma*Q[i_s_next,i_a_next] - Q[i_s, i_a])
+
+                        if i % 10000 == 0:
+                                print(Q[0,0])
+                self.Q = Q
+                policy = self.get_policy_from_q(Q)
 
 
 if __name__ == '__main__':
 	a = Robber(0.8)
-	a.Q_learn()
+	a.Sarsa(0.1)
 

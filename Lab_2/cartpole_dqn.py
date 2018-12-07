@@ -15,8 +15,8 @@ EPISODES = 1000 #Maximum number of episodes
 class DQNAgent:
     #Constructor for the agent (invoked when DQN is first called in main)
     def __init__(self, state_size, action_size):
-        self.check_solve = False	#If True, stop if you satisfy solution confition
-        self.render = False        #If you want to see Cartpole learning, then change to True
+        self.check_solve = True	#If True, stop if you satisfy solution confition
+        self.render = True        #If you want to see Cartpole learning, then change to True
 
         #Get size of state and action
         self.state_size = state_size
@@ -25,11 +25,11 @@ class DQNAgent:
 ################################################################################
 ################################################################################
         #Set hyper parameters for the DQN. Do not adjust those labeled as Fixed.
-        self.discount_factor = 0.95
+        self.discount_factor = 0.99
         self.learning_rate = 0.005
         self.epsilon = 0.02 #Fixed
         self.batch_size = 32 #Fixed
-        self.memory_size = 1000
+        self.memory_size = 2000
         self.train_start = 1000 #Fixed
         self.target_update_frequency = 1
 ################################################################################
@@ -58,6 +58,8 @@ class DQNAgent:
         model = Sequential()
         model.add(Dense(16, input_dim=self.state_size, activation='relu',
                         kernel_initializer='he_uniform'))
+        #model.add(Dense(16, activation='relu',
+        #                kernel_initializer='he_uniform'))
         model.add(Dense(self.action_size, activation='linear',
                         kernel_initializer='he_uniform'))
         model.summary()
@@ -74,10 +76,15 @@ class DQNAgent:
     def get_action(self, state):
 ###############################################################################
 ###############################################################################
+        eps_action = np.random.choice([True, False],1,p=[self.epsilon, 1-self.epsilon])[0]
+        if eps_action:
+            action = random.randrange(self.action_size)
+        else:
+            action = np.argmax(self.model.predict(state))
         #Insert your e-greedy policy code here
         #Tip 1: Use the random package to generate a random action.
         #Tip 2: Use keras.model.predict() to compute Q-values from the state.
-        action = random.randrange(self.action_size)
+
         return action
 ###############################################################################
 ###############################################################################
@@ -109,19 +116,30 @@ class DQNAgent:
         #Q Learning: get maximum Q value at s' from target network
 ###############################################################################
 ###############################################################################
-        #Insert your Q-learning code here
         #Tip 1: Observe that the Q-values are stored in the variable target
         #Tip 2: What is the Q-value of the action taken at the last state of the episode?
+        #y = np.zeros(target_val.shape)
         for i in range(self.batch_size): #For every batch
-            target[i][action[i]] = random.randint(0,1)
+            target[i][action[i]] = reward[i]
+            if self.valid_state(update_target[i]):
+                target[i][action[i]] = target[i][action[i]] + self.discount_factor*max(target_val[i])
+
 ###############################################################################
 ###############################################################################
 
         #Train the inner loop network
         self.model.fit(update_input, target, batch_size=self.batch_size,
-                       epochs=1, verbose=0)
+                      epochs=1, verbose=0)
         return
+    
+    def valid_state(self,state):
+        # states = [x,xdot, theta, thetadot]
+        if abs(state[2]) > 5*np.pi/72 or abs(state[0]) > 2.4:
+            return False
+        else:
+            return True
     #Plots the score per episode as well as the maximum q value per episode, averaged over precollected states.
+   
     def plot_data(self, episodes, scores, max_q_mean):
         pylab.figure(0)
         pylab.plot(episodes, max_q_mean, 'b')
@@ -136,6 +154,9 @@ class DQNAgent:
         pylab.savefig("scores.png")
 
 if __name__ == "__main__":
+    
+    
+
     #For CartPole-v0, maximum episode length is 200
     env = gym.make('CartPole-v0') #Generate Cartpole-v0 environment object from the gym library
     #Get state and action sizes from the environment
@@ -149,7 +170,8 @@ if __name__ == "__main__":
     test_states = np.zeros((agent.test_state_no, state_size))
     max_q = np.zeros((EPISODES, agent.test_state_no))
     max_q_mean = np.zeros((EPISODES,1))
-
+    
+    #print(agent.target_model.predict(np.zeros([4,1])))
     done = True
     for i in range(agent.test_state_no):
         if done:
@@ -205,8 +227,9 @@ if __name__ == "__main__":
                 # if the mean of scores of last 100 episodes is bigger than 195
                 # stop training
                 if agent.check_solve:
-                    if np.mean(scores[-min(100, len(scores)):]) >= 195:
+                    if np.mean(scores[-min(100, len(scores)):]) >= 120:
                         print("solved after", e-100, "episodes")
                         agent.plot_data(episodes,scores,max_q_mean[:e+1])
                         sys.exit()
     agent.plot_data(episodes,scores,max_q_mean)
+
